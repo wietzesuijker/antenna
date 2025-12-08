@@ -8,6 +8,7 @@ import typing
 import urllib.parse
 from io import BytesIO
 from typing import Final, final  # noqa: F401
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import PIL.Image
 import pydantic
@@ -606,6 +607,14 @@ class Deployment(BaseModel):
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     image = models.ImageField(upload_to="deployments", blank=True, null=True)
+    time_zone = models.CharField(
+        max_length=64,
+        default=settings.TIME_ZONE,
+        help_text=(
+            "IANA time zone for this deployment. Naive datetimes are interpreted in this zone "
+            "before being stored as UTC."
+        ),
+    )
 
     project = models.ForeignKey(Project, on_delete=models.SET_NULL, null=True, related_name="deployments")
 
@@ -661,6 +670,14 @@ class Deployment(BaseModel):
 
     class Meta:
         ordering = ["name"]
+
+    def clean(self):
+        super().clean()
+        if self.time_zone:
+            try:
+                ZoneInfo(self.time_zone)
+            except ZoneInfoNotFoundError as exc:
+                raise ValidationError({"time_zone": f"Invalid IANA time zone '{self.time_zone}': {exc}"}) from exc
 
     def taxa(self) -> models.QuerySet["Taxon"]:
         return Taxon.objects.filter(Q(occurrences__deployment=self)).distinct()

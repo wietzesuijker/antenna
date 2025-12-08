@@ -4,6 +4,7 @@ import typing
 from io import BytesIO
 
 from django.contrib.auth.models import AnonymousUser
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection, models
 from django.test import TestCase, override_settings
@@ -15,6 +16,7 @@ from rich import print
 
 from ami.exports.models import DataExport
 from ami.jobs.models import VALID_JOB_TYPES, Job
+from ami.main.api.serializers import DeploymentSerializer
 from ami.main.models import (
     Classification,
     Deployment,
@@ -44,6 +46,28 @@ from ami.users.models import User
 from ami.users.roles import BasicMember, Identifier, ProjectManager
 
 logger = logging.getLogger(__name__)
+
+
+class TestTimeZoneNormalization(TestCase):
+    def test_deployment_invalid_time_zone_raises(self):
+        project = Project.objects.create(name="TZ Project", create_defaults=False)
+        deployment = Deployment(project=project, name="D1", time_zone="Mars/Phobos")
+        with self.assertRaises(ValidationError):
+            deployment.full_clean()
+
+    def test_deployment_serializer_exposes_time_zone(self):
+        project = Project.objects.create(name="TZ Project", create_defaults=False)
+        deployment = Deployment.objects.create(project=project, name="D1", time_zone="UTC")
+
+        class MinimalDeploymentSerializer(DeploymentSerializer):
+            class Meta(DeploymentSerializer.Meta):
+                fields = ("id", "time_zone")
+
+        request = APIRequestFactory().get("/")
+        request.user = AnonymousUser()
+
+        data = MinimalDeploymentSerializer(deployment, context={"request": request}).data
+        self.assertEqual(data["time_zone"], "UTC")
 
 
 class TestProjectSetup(TestCase):
