@@ -355,18 +355,18 @@ CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = True
 
 # RabbitMQ broker connection settings
 # These settings improve reliability for long-running workers with intermittent network issues
+_socket_settings = {}
+if hasattr(socket, "TCP_KEEPIDLE"):
+    _socket_settings[socket.TCP_KEEPIDLE] = 60
+if hasattr(socket, "TCP_KEEPINTVL"):
+    _socket_settings[socket.TCP_KEEPINTVL] = 10
+if hasattr(socket, "TCP_KEEPCNT"):
+    _socket_settings[socket.TCP_KEEPCNT] = 9
+
 CELERY_BROKER_TRANSPORT_OPTIONS = {
     # Custom TCP Keepalives to ensure network stack doesn't silently drop connections
     "socket_keepalive": True,
-    "socket_settings": {
-        # Start sending Keepalive packets after 60 seconds of silence.
-        # This forces traffic on the wire, preventing the OpenStack 1-hour timeout.
-        socket.TCP_KEEPIDLE: 60,
-        # If no response, retry every 10 seconds.
-        socket.TCP_KEEPINTVL: 10,
-        # Give up and close connection after 9 failed attempts.
-        socket.TCP_KEEPCNT: 9,
-    },
+    "socket_settings": _socket_settings,
     # Connection Stability Settings
     "socket_connect_timeout": 40,  # Max time to establish connection
     "retry_on_timeout": True,  # Retry operations if they time out

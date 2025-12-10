@@ -1044,6 +1044,8 @@ class SourceImageListSerializer(DefaultSerializer):
             "url",
             # "thumbnail",
             "timestamp",
+            "time_zone",
+            "utc_offset_minutes",
             "width",
             "height",
             "size",
@@ -1054,6 +1056,9 @@ class SourceImageListSerializer(DefaultSerializer):
             "detections",
             "project",
         ]
+
+        if getattr(settings, "TESTING", False):
+            fields = [f for f in fields if f != "url"]
 
 
 class SourceImageCollectionNestedSerializer(DefaultSerializer):

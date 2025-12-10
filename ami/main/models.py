@@ -1685,6 +1685,17 @@ class SourceImage(BaseModel):
     path = models.CharField(max_length=255, blank=True)
     public_base_url = models.CharField(max_length=255, blank=True, null=True)
     timestamp = models.DateTimeField(null=True, blank=True, db_index=True)
+    time_zone = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text="IANA time zone for this capture",
+    )
+    utc_offset_minutes = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Offset from UTC in minutes at capture time",
+    )
     width = models.IntegerField(null=True, blank=True)
     height = models.IntegerField(null=True, blank=True)
     size = models.BigIntegerField(null=True, blank=True)
@@ -1717,6 +1728,18 @@ class SourceImage(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__} #{self.pk} {self.path}"
+
+    def clean(self):
+        super().clean()
+        if self.time_zone:
+            try:
+                ZoneInfo(self.time_zone)
+            except ZoneInfoNotFoundError as exc:
+                raise ValidationError({"time_zone": f"Invalid IANA time zone '{self.time_zone}': {exc}"}) from exc
+
+        if self.utc_offset_minutes is not None:
+            if not -720 <= self.utc_offset_minutes <= 840:
+                raise ValidationError({"utc_offset_minutes": "UTC offset must be between -720 and 840 minutes."})
 
     def public_url(self, raise_errors=False) -> str | None:
         """

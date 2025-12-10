@@ -4,7 +4,6 @@ import os
 import pathlib
 import random
 import uuid
-
 from django.db import transaction
 from django.utils import timezone
 
@@ -179,6 +178,7 @@ def create_captures_from_files(
     )
 
     deployment.sync_captures()
+
     assert deployment.captures.count() > 0, "Captures were synced, but no files were found."
     group_images_into_events(deployment)
 

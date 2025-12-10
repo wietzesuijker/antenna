@@ -10,19 +10,22 @@ from ami.utils import s3
 logger = logging.getLogger(__name__)
 
 
+_public_base_url = getattr(settings, "S3_TEST_PUBLIC_BASE_URL", None) or f"http://minio:9000/{settings.S3_TEST_BUCKET}/test_prefix"
+
 S3_TEST_CONFIG = s3.S3Config(
     endpoint_url=settings.S3_TEST_ENDPOINT,
     access_key_id=settings.S3_TEST_KEY,
     secret_access_key=settings.S3_TEST_SECRET,
     bucket_name=settings.S3_TEST_BUCKET,
     prefix="test_prefix",
-    public_base_url=f"http://minio:9000/{settings.S3_TEST_BUCKET}/test_prefix",
+    public_base_url=_public_base_url,
     # public_base_url="http://minio:9001",
 )
 
 
 def create_storage_source(project: Project, name: str, prefix: str = S3_TEST_CONFIG.prefix) -> S3StorageSource:
-    s3.create_bucket(config=S3_TEST_CONFIG, bucket_name=S3_TEST_CONFIG.bucket_name)
+    if S3_TEST_CONFIG.endpoint_url:
+        s3.create_bucket(config=S3_TEST_CONFIG, bucket_name=S3_TEST_CONFIG.bucket_name)
     data_source, _created = S3StorageSource.objects.get_or_create(
         project=project,
         name=name,

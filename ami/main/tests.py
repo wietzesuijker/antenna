@@ -16,7 +16,7 @@ from rich import print
 
 from ami.exports.models import DataExport
 from ami.jobs.models import VALID_JOB_TYPES, Job
-from ami.main.api.serializers import DeploymentSerializer
+from ami.main.api.serializers import DeploymentSerializer, SourceImageListSerializer
 from ami.main.models import (
     Classification,
     Deployment,
@@ -68,6 +68,27 @@ class TestTimeZoneNormalization(TestCase):
 
         data = MinimalDeploymentSerializer(deployment, context={"request": request}).data
         self.assertEqual(data["time_zone"], "UTC")
+
+    def test_source_image_invalid_time_zone_raises(self):
+        project = Project.objects.create(name="TZ Project", create_defaults=False)
+        image = SourceImage(project=project, time_zone="Mars/Phobos")
+        with self.assertRaises(ValidationError):
+            image.full_clean()
+
+    def test_source_image_serializer_exposes_time_zone_and_offset(self):
+        project = Project.objects.create(name="TZ Project", create_defaults=False)
+        deployment = Deployment.objects.create(project=project, name="D1", time_zone="UTC")
+        image = SourceImage.objects.create(
+            project=project,
+            deployment=deployment,
+            time_zone="Europe/Berlin",
+            utc_offset_minutes=120,
+        )
+
+        request = APIRequestFactory().get("/")
+        data = SourceImageListSerializer(image, context={"request": request}).data
+        self.assertEqual(data["time_zone"], "Europe/Berlin")
+        self.assertEqual(data["utc_offset_minutes"], 120)
 
 
 class TestProjectSetup(TestCase):
