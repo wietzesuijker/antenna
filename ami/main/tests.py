@@ -85,8 +85,13 @@ class TestTimeZoneNormalization(TestCase):
             utc_offset_minutes=120,
         )
 
+        class MinimalSourceImageSerializer(SourceImageListSerializer):
+            class Meta(SourceImageListSerializer.Meta):
+                fields = ("id", "time_zone", "utc_offset_minutes")
+
         request = APIRequestFactory().get("/")
-        data = SourceImageListSerializer(image, context={"request": request}).data
+        request.user = AnonymousUser()
+        data = MinimalSourceImageSerializer(image, context={"request": request}).data
         self.assertEqual(data["time_zone"], "Europe/Berlin")
         self.assertEqual(data["utc_offset_minutes"], 120)
 

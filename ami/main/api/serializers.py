@@ -1057,9 +1057,6 @@ class SourceImageListSerializer(DefaultSerializer):
             "project",
         ]
 
-        if getattr(settings, "TESTING", False):
-            fields = [f for f in fields if f != "url"]
-
 
 class SourceImageCollectionNestedSerializer(DefaultSerializer):
     class Meta:

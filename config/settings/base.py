@@ -366,7 +366,9 @@ if hasattr(socket, "TCP_KEEPCNT"):
 CELERY_BROKER_TRANSPORT_OPTIONS = {
     # Custom TCP Keepalives to ensure network stack doesn't silently drop connections
     "socket_keepalive": True,
-    "socket_settings": _socket_settings,
+    "socket_settings": {
+        **_socket_settings,
+    },
     # Connection Stability Settings
     "socket_connect_timeout": 40,  # Max time to establish connection
     "retry_on_timeout": True,  # Retry operations if they time out

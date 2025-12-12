@@ -151,23 +151,6 @@ class ProcessingService(BaseModel):
         Args:
             timeout: Request timeout in seconds per attempt (default: 90s for serverless cold starts)
         """
-        if getattr(settings, "TESTING", False):
-            timestamp = datetime.datetime.now()
-            self.last_checked = timestamp
-            self.last_checked_live = True
-            self.last_checked_latency = 0.0
-            self.save(update_fields=["last_checked", "last_checked_live", "last_checked_latency"])
-            return ProcessingServiceStatusResponse(
-                timestamp=timestamp,
-                request_successful=True,
-                server_live=True,
-                pipelines_online=[],
-                pipeline_configs=[],
-                endpoint_url=self.endpoint_url,
-                error=None,
-                latency=0.0,
-            )
-
         ready_check_url = urljoin(self.endpoint_url, "readyz")
         start_time = time.time()
         error = None
@@ -232,8 +215,6 @@ class ProcessingService(BaseModel):
         Get the pipeline configurations from the processing service.
         This can be a long response as it includes the full category map for each algorithm.
         """
-        if getattr(settings, "TESTING", False):
-            return []
         info_url = urljoin(self.endpoint_url, "info")
         resp = requests.get(info_url, timeout=timeout)
         resp.raise_for_status()

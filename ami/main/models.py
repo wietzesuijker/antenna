@@ -18,6 +18,7 @@ from django.contrib.auth.models import AbstractUser, AnonymousUser
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import IntegrityError, models, transaction
 from django.db.models import Exists, OuterRef, Q
 from django.db.models.fields.files import ImageFieldFile
@@ -52,6 +53,15 @@ if typing.TYPE_CHECKING:
     from ami.ml.models import Pipeline, ProcessingService
 
 logger = logging.getLogger(__name__)
+
+
+def validate_iana_time_zone(value: typing.Any) -> None:
+    if not value:
+        return
+    try:
+        ZoneInfo(str(value))
+    except ZoneInfoNotFoundError as exc:
+        raise ValidationError(f"Invalid IANA time zone '{value}': {exc}") from exc
 
 # Constants
 _POST_TITLE_MAX_LENGTH: Final = 80
@@ -610,10 +620,8 @@ class Deployment(BaseModel):
     time_zone = models.CharField(
         max_length=64,
         default=settings.TIME_ZONE,
-        help_text=(
-            "IANA time zone for this deployment. Naive datetimes are interpreted in this zone "
-            "before being stored as UTC."
-        ),
+        help_text="IANA time zone for this deployment.",
+        validators=[validate_iana_time_zone],
     )
 
     project = models.ForeignKey(Project, on_delete=models.SET_NULL, null=True, related_name="deployments")
@@ -671,13 +679,6 @@ class Deployment(BaseModel):
     class Meta:
         ordering = ["name"]
 
-    def clean(self):
-        super().clean()
-        if self.time_zone:
-            try:
-                ZoneInfo(self.time_zone)
-            except ZoneInfoNotFoundError as exc:
-                raise ValidationError({"time_zone": f"Invalid IANA time zone '{self.time_zone}': {exc}"}) from exc
 
     def taxa(self) -> models.QuerySet["Taxon"]:
         return Taxon.objects.filter(Q(occurrences__deployment=self)).distinct()
@@ -1690,11 +1691,13 @@ class SourceImage(BaseModel):
         null=True,
         blank=True,
         help_text="IANA time zone for this capture",
+        validators=[validate_iana_time_zone],
     )
     utc_offset_minutes = models.IntegerField(
         null=True,
         blank=True,
         help_text="Offset from UTC in minutes at capture time",
+        validators=[MinValueValidator(-720), MaxValueValidator(840)],
     )
     width = models.IntegerField(null=True, blank=True)
     height = models.IntegerField(null=True, blank=True)
@@ -1728,18 +1731,6 @@ class SourceImage(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__} #{self.pk} {self.path}"
-
-    def clean(self):
-        super().clean()
-        if self.time_zone:
-            try:
-                ZoneInfo(self.time_zone)
-            except ZoneInfoNotFoundError as exc:
-                raise ValidationError({"time_zone": f"Invalid IANA time zone '{self.time_zone}': {exc}"}) from exc
-
-        if self.utc_offset_minutes is not None:
-            if not -720 <= self.utc_offset_minutes <= 840:
-                raise ValidationError({"utc_offset_minutes": "UTC offset must be between -720 and 840 minutes."})
 
     def public_url(self, raise_errors=False) -> str | None:
         """
